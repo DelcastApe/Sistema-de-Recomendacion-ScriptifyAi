@@ -1,0 +1,6 @@
+.git
+__pycache__/
+*.py[cod]
+.venv/
+*.ipynb
+.DS_Store

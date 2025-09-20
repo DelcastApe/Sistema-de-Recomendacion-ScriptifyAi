@@ -1,0 +1,32 @@
+# generales
+.DS_Store
+.vscode/
+.idea/
+*.log
+
+# env / secrets
+.env
+.env.*
+**/.env
+**/.env.*
+
+# node / frontend
+app/node_modules/
+app/dist/
+app/.vite/
+
+# python / backend
+app/venv/
+app/.venv/
+app/__pycache__/
+app/.pytest_cache/
+app/.mypy_cache/
+
+# docker/infra (datos locales)
+infra/**/data/
+infra/**/logs/
+infra/**/volumes*/
+infra/**/tmp/
+infra/**/import/
+infra/**/export/
+infra/**/metrics/

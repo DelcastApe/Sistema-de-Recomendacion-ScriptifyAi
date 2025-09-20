@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+llama-index
+llama-index-llms-ollama
+neo4j>=5.20,<6
+requests
