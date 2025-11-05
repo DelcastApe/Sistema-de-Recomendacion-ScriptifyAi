@@ -5,8 +5,15 @@ services:
     environment:
       - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
       - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4J_dbms_security_procedures_allowlist=apoc.*
     volumes:
       - neo4jdata:/data
+      - ./neo4j/import:/var/lib/neo4j/import   # ⬅️ importante
+
+
 
   ollama:
     image: ollama/ollama:latest
@@ -17,7 +24,8 @@ services:
 
   api:
     build: ../app
-    env_file: ../app/.env
+    env_file:
+      - ../app/.env                       # ✅ aquí sí (incluye NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
     depends_on: [neo4j, ollama]
     ports: ["8000:8000"]
 

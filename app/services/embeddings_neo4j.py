@@ -1,101 +1,185 @@
-import os, requests
-from typing import List, Dict, Any
-from neo4j import GraphDatabase
+# app/services/embeddings_neo4j.py
+import os
+import math
+import requests
+from typing import Any, Dict, List, Optional
 
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://ollama:11434")
-EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+from neo4j import GraphDatabase
 
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://neo4j:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "28080808")
+NEO4J_PASS = os.getenv("NEO4J_PASSWORD", "28080808")
 
-def _parse_embed_response(data: Dict[str, Any]) -> List[float]:
-    if isinstance(data, dict) and isinstance(data.get("embedding"), list) and data["embedding"]:
-        return data["embedding"]
-    if isinstance(data, dict) and isinstance(data.get("embeddings"), list) and data["embeddings"]:
-        first = data["embeddings"][0]
-        if isinstance(first, list) and first:
-            return first
-    if isinstance(data, dict) and isinstance(data.get("data"), list) and data["data"]:
-        emb = data["data"][0].get("embedding")
-        if isinstance(emb, list) and emb:
-            return emb
+EMBED_PROVIDER = os.getenv("EMBED_PROVIDER", "ollama").lower()
+EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://ollama:11434")
+
+# Dim esperada por tu índice HNSW (768 para nomic-embed-text)
+EXPECTED_DIM = int(os.getenv("EMBED_DIM", "768"))
+
+driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASS))
+
+
+def _len_or_zero(x):
+    try:
+        return len(x)
+    except Exception:
+        return 0
+
+
+def _embed_ollama(text: str) -> List[float]:
+    """
+    Hace embedding vía Ollama probando ambos formatos:
+      1) {"input": "texto"} -> data['embedding']
+      2) {"input": ["texto"]} -> data['embeddings'][0]
+    Devuelve [] si no hay vector usable.
+    """
+    url = f"{OLLAMA_HOST}/api/embeddings"
+    headers = {"Content-Type": "application/json"}
+
+    # intento #1: forma simple
+    try:
+        r = requests.post(url, headers=headers, json={"model": EMBED_MODEL, "input": text}, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+        vec = data.get("embedding") or []
+        if _len_or_zero(vec) > 0:
+            return vec
+    except Exception:
+        pass
+
+    # intento #2: forma batched
+    try:
+        r2 = requests.post(url, headers=headers, json={"model": EMBED_MODEL, "input": [text]}, timeout=30)
+        r2.raise_for_status()
+        data2 = r2.json()
+        embs = data2.get("embeddings") or []
+        if isinstance(embs, list) and embs and _len_or_zero(embs[0]) > 0:
+            return embs[0]
+    except Exception:
+        pass
+
     return []
 
+
 def _embed(text: str) -> List[float]:
-    url = f"{OLLAMA_HOST}/api/embeddings"
-    payloads = [
-        {"model": EMBED_MODEL, "prompt": text},   # preferido por Ollama
-        {"model": EMBED_MODEL, "input": text},    # fallback 1
-        {"model": EMBED_MODEL, "input": [text]},  # fallback 2
-    ]
-    last_err = None
-    for pl in payloads:
-        try:
-            r = requests.post(url, json=pl, timeout=60)
-            r.raise_for_status()
-            vec = _parse_embed_response(r.json())
-            if isinstance(vec, list) and len(vec) > 0:
-                return vec
-        except Exception as e:
-            last_err = e
-    raise RuntimeError(f"Embeddings vacíos o respuesta inesperada de Ollama: {last_err}")
+    if EMBED_PROVIDER == "ollama":
+        vec = _embed_ollama(text)
+    else:
+        vec = []
+    return vec
 
-def _ensure_index(session, dim: int):
-    if not isinstance(dim, int) or dim < 1 or dim > 4096:
-        raise RuntimeError(f"Dimensión de embedding inválida: {dim}")
-    session.run("DROP INDEX video_embedding_index IF EXISTS")
-    session.run("""
-    CREATE VECTOR INDEX video_embedding_index
-    FOR (v:Video) ON (v.embedding)
-    OPTIONS {
-      indexConfig: {
-        `vector.dimensions`: $dim,
-        `vector.similarity_function`: 'cosine'
-      }
-    }
-    """, dim=dim)
 
-def seed_embeddings(_repo=None) -> Dict[str, Any]:
-    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-    updated = 0
-    dim = None
-    try:
-        with driver.session() as s:
-            rows = s.run("MATCH (v:Video) RETURN v.id AS id, v.title AS title ORDER BY id").data()
+def _check_dim(vec: List[float]) -> Optional[str]:
+    if not vec:
+        return "embedding vacío"
+    if EXPECTED_DIM and len(vec) != EXPECTED_DIM:
+        return f"dimensión {len(vec)} != {EXPECTED_DIM}"
+    # NaN/Inf guard
+    for v in vec:
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+            return "valores NaN/Inf en embedding"
+    return None
+
+
+def seed_embeddings(batch_size: int = 2000) -> Dict[str, Any]:
+    """
+    Busca videos sin embedding y les genera v.embedding con la dimensión esperada.
+    """
+    with driver.session() as session:
+        # count candidatos
+        q_cnt = """
+        MATCH (v:Video)
+        WHERE v.embedding IS NULL
+        RETURN count(v) AS total
+        """
+        total = session.run(q_cnt).single()["total"]
+
+        q_pick = """
+        MATCH (v:Video)
+        WHERE v.embedding IS NULL
+        RETURN v.id AS id, v.title AS title
+        LIMIT $batch
+        """
+
+        q_set = """
+        MATCH (v:Video {id:$id})
+        SET v.embedding = $emb
+        """
+
+        updated = 0
+        tries = 0
+
+        while updated < total and tries < 10:
+            rows = list(session.run(q_pick, batch=batch_size))
             if not rows:
-                return {"updated": 0, "index": "video_embedding_index", "dim": 0}
-            first_vec = _embed(rows[0]["title"])
-            dim = len(first_vec)
-            _ensure_index(s, dim)
-            payload = [{"id": rows[0]["id"], "emb": first_vec}]
-            for r in rows[1:]:
-                v = _embed(r["title"])
-                if len(v) != dim:
-                    raise RuntimeError(f"Dimensión inconsistente en {r['id']}: {len(v)} != {dim}")
-                payload.append({"id": r["id"], "emb": v})
-            s.run("""
-            UNWIND $rows AS row
-            MATCH (v:Video {id: row.id})
-            SET v.embedding = row.emb
-            """, rows=payload)
-            updated = len(payload)
-    finally:
-        driver.close()
-    return {"updated": updated, "index": "video_embedding_index", "dim": dim or 0}
+                break
 
-def vector_search(_repo, q: str, k: int = 5) -> List[Dict[str, Any]]:
-    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-    try:
-        qvec = _embed(q)
-        with driver.session() as s:
-            res = s.run("""
-                CALL db.index.vector.queryNodes('video_embedding_index', $k, $vec)
-                YIELD node, score
-                RETURN node.id AS id, node.title AS title, node.format AS format,
-                       node.retention AS retention, node.ctr AS ctr, score
-                ORDER BY score DESC
-            """, vec=qvec, k=int(k)).data()
-            return res
-    finally:
-        driver.close()
+            for row in rows:
+                vid = row["id"]
+                title = row["title"] or ""
+                vec = _embed(title)
+                err = _check_dim(vec)
+                if err:
+                    # si embedding falla, salta y continúa
+                    continue
+                session.run(q_set, id=vid, emb=vec)
+                updated += 1
+
+            tries += 1
+
+        return {
+            "ok": True,
+            "total_candidates": total,
+            "updated": updated,
+            "dim": EXPECTED_DIM,
+            "model": EMBED_MODEL,
+            "provider": EMBED_PROVIDER,
+        }
+
+
+def vector_search(q: str, k: int = 5) -> Dict[str, Any]:
+    """
+    Genera embedding para la query y pregunta al índice.
+    Devuelve ok=False si el embedding es vacío o dim incorrecta.
+    """
+    vec = _embed(q)
+    err = _check_dim(vec)
+    if err:
+        return {
+            "ok": False,
+            "where": "vector-search",
+            "error": f"Embeddings vacíos o inválidos desde {EMBED_PROVIDER}. ({err})",
+        }
+
+    cypher = """
+    CALL db.index.vector.queryNodes('video_embedding_index', $limit, $vec)
+    YIELD node, score
+    RETURN node.videoId AS videoId,
+           node.title AS title,
+           node.engagement_rate AS engagement_rate,
+           node.seconds AS seconds,
+           node.publishedAt AS publishedAt,
+           score
+    LIMIT $k
+    """
+    with driver.session() as session:
+        recs = []
+        for r in session.run(cypher, limit=max(50, k), vec=vec, k=k):
+            recs.append({
+                "videoId": r["videoId"],
+                "title": r["title"],
+                "engagement_rate": r["engagement_rate"],
+                "seconds": r["seconds"],
+                "publishedAt": r["publishedAt"],
+                "score": float(r["score"]),
+            })
+        return {
+            "ok": True,
+            "query": q,
+            "k": k,
+            "embed_dim": EXPECTED_DIM,
+            "model": EMBED_MODEL,
+            "provider": EMBED_PROVIDER,
+            "results": recs[:k],
+        }
