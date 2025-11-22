@@ -278,3 +278,35 @@ select option {
 /* === Botones pegados al final === */
 .actions-left { justify-content: flex-start; }
 .actions.full { grid-column: 1 / -1; }
+
+/* === Hashtags por idea === */
+.tag-group{
+  list-style:none;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:8px 0;
+  border-bottom:1px dashed rgba(255,255,255,.08);
+}
+.tag-group:last-child{ border-bottom:none; }
+
+.tag-group__title{
+  font-weight:800;
+  font-size:13px;
+  color:#fff;
+  opacity:.9;
+}
+
+.tag-group__tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+/* === Hashtags de ejemplos === */
+.example-tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:6px;
+}

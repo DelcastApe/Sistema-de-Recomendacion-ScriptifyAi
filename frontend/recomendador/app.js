@@ -30,38 +30,102 @@ const QUIPS = [
   "La IA está tomando notas para tu próximo video.",
   "Hablando con YouTube: ‘trátalo bien, es buena gente’."
 ];
+
 const $ = (s)=>document.querySelector(s);
-function show(e){e.classList.remove("hidden")} function hide(e){e.classList.add("hidden")}
+function show(e){e.classList.remove("hidden")}
+function hide(e){e.classList.add("hidden")}
+
 let quipTimer=null;
-function startQuips(){ const el=$("#quip"); if(!el) return; let i=0; el.textContent=QUIPS[i]; quipTimer=setInterval(()=>{i=(i+1)%QUIPS.length; el.textContent=QUIPS[i];},6000); }
+function startQuips(){
+  const el=$("#quip"); if(!el) return;
+  let i=0; el.textContent=QUIPS[i];
+  quipTimer=setInterval(()=>{
+    i=(i+1)%QUIPS.length; el.textContent=QUIPS[i];
+  },6000);
+}
 function stopQuips(){ if(quipTimer) clearInterval(quipTimer); quipTimer=null; }
 
 const youtube = id => `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
 const fmt = iso => { try { return new Date(iso).toLocaleString(); } catch { return "—"; } };
 
-// ===== Render: SOLO lo que interesa =====
+// ===== Render: SOLO lo que interesa + hashtags correctos =====
 function renderOutput(data){
   $("#rec-text").textContent = data.recommendation || "—";
   $("#reason-text").textContent = data.reason || "—";
 
+  // ===== Ideas =====
   const ideasUl=$("#ideas-list"); ideasUl.innerHTML="";
-  (data.ideas||[]).forEach(t=>{
+  const ideas = data.ideas || [];
+  ideas.forEach(t=>{
     const li=document.createElement("li");
     li.textContent=t;
     ideasUl.appendChild(li);
   });
 
+  // ===== Hashtags sugeridos (todos juntos) =====
+  const tagsUl = $("#hashtags-ideas");
+  tagsUl.innerHTML = "";
+
+  // Unir todos los hashtags en una sola lista
+  const flatTags = (data.hashtags_for_ideas || []).flat();
+
+  // Filtrar vacíos y duplicados
+  const uniqueTags = [...new Set(flatTags.filter(Boolean))];
+
+  if (uniqueTags.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "Sin hashtags sugeridos";
+    li.className = "tag muted";
+    tagsUl.appendChild(li);
+  } else {
+    uniqueTags.forEach(tag => {
+      const li = document.createElement("li");
+      li.className = "tag";
+      li.textContent = tag;
+      tagsUl.appendChild(li);
+    });
+  }
+
+
+  // ===== Examples + hashtags_for_examples =====
   const exWrap=$("#examples"); exWrap.innerHTML="";
   (data.examples||[]).forEach(ex=>{
     const div=document.createElement("div"); div.className="example";
     const h4=document.createElement("h4");
     const title=ex.title||"Ejemplo";
+
     if(ex.videoId){
-      const a=document.createElement("a"); a.href=youtube(ex.videoId); a.target="_blank"; a.rel="noopener"; a.textContent=title; h4.appendChild(a);
-    } else { h4.textContent=title; }
+      const a=document.createElement("a");
+      a.href=youtube(ex.videoId);
+      a.target="_blank";
+      a.rel="noopener";
+      a.textContent=title;
+      h4.appendChild(a);
+    } else {
+      h4.textContent=title;
+    }
+
     const meta=document.createElement("p"); meta.className="meta";
     meta.textContent=`Publicado: ${fmt(ex.publishedAt)}${ex.url ? " · "+ex.url : ""}`;
+
     div.append(h4, meta);
+
+    // ✅ hashtags del ejemplo (hashtags_for_examples)
+    const exTags = ex.hashtags_for_examples || [];
+    if (exTags.length > 0) {
+      const tagsWrap = document.createElement("div");
+      tagsWrap.className = "example-tags";
+
+      exTags.forEach(tag => {
+        const s = document.createElement("span");
+        s.className = "tag";
+        s.textContent = tag;
+        tagsWrap.appendChild(s);
+      });
+
+      div.appendChild(tagsWrap);
+    }
+
     exWrap.appendChild(div);
   });
 
@@ -76,7 +140,6 @@ function toNumberOrNull(v){
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
-
 function uniq(arr){ return [...new Set(arr)]; }
 
 function parseSpecialties(s){
@@ -113,7 +176,7 @@ function formToPayload(form){
     comments: toNumberOrNull(get("comments")),
     followers: toNumberOrNull(get("followers")),
     specialties: parseSpecialties(get("specialties")),
-    ...FIXED, // 👈 siempre incluye region, top_k, use_graph
+    ...FIXED,
   };
 
   return cleanPayload(payload);
@@ -147,18 +210,35 @@ window.addEventListener("DOMContentLoaded", ()=>{
       "3 ganchos para captar en 3 segundos",
       "Antes y después: experiencia inmersiva"
     ],
+    hashtags_for_ideas:[
+      ["#xr","#comparativa"],
+      ["#checklist","#inicio"],
+      ["#ganchos","#retencion"],
+      []
+    ],
     examples:[
-      {publishedAt:"2025-10-10T15:00:54+00:00", title:"Demo XR", videoId:"S_shhw4VV68", url:"https://youtu.be/S_shhw4VV68"},
-      {publishedAt:"2025-10-08T20:43:13+00:00", title:"Tendencias XR", videoId:"bGH-DvBlUhM", url:"https://youtu.be/bGH-DvBlUhM"}
+      {
+        publishedAt:"2025-10-10T15:00:54+00:00",
+        title:"Demo XR",
+        videoId:"S_shhw4VV68",
+        url:"https://youtu.be/S_shhw4VV68",
+        hashtags_for_examples:["#xr","#demo"]
+      },
+      {
+        publishedAt:"2025-10-08T20:43:13+00:00",
+        title:"Tendencias XR",
+        videoId:"bGH-DvBlUhM",
+        url:"https://youtu.be/bGH-DvBlUhM",
+        hashtags_for_examples:["#tendencias","#realidadmixta"]
+      }
     ]
   };
 
   form.addEventListener("submit", async (e)=>{
     e.preventDefault(); hide(results); show(modal); startQuips();
     try{
-      const payload = formToPayload(form);               // ← forma final del curl
-      // console.log("Payload enviado:", payload);        // (útil para depurar)
-      const data = await callWithRetry(payload, 2);      // usa /api + x-api-key desde apiClient.js
+      const payload = formToPayload(form);
+      const data = await callWithRetry(payload, 2);
       renderOutput(data);
     }catch(err){
       console.error(err);
@@ -190,3 +270,4 @@ window.addEventListener("DOMContentLoaded", ()=>{
     });
   });
 });
+
