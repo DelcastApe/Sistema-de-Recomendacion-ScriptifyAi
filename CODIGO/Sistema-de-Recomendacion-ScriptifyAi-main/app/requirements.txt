@@ -1,0 +1,16 @@
+# --- Web/API
+fastapi>=0.112,<0.116
+uvicorn[standard]>=0.30,<0.31
+requests>=2.31
+
+# --- Datos/utilidades
+pandas>=2.1,<2.3
+python-dotenv>=1.0
+
+# --- Neo4j
+neo4j>=5.20,<6
+
+# --- LlamaIndex (línea 0.10.x estable para compatibilidad con ollama 0.2.x)
+llama-index-core==0.10.63
+llama-index-llms-ollama==0.2.2
+llama-index-embeddings-ollama==0.2.0

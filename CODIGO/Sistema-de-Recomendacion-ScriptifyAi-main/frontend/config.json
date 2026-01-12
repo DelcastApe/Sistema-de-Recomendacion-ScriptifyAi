@@ -1,0 +1,4 @@
+{
+  "API_URL": "/api/recommend/llm?pretty=1",
+  "API_KEY": "supersecreto"
+}

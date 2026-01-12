@@ -1,0 +1,23 @@
+# ---- Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.Python
+**/*.egg-info/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
+# ---- Virtual envs
+**/.venv/
+**/venv/
+**/env/
+
+# ---- OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# ---- Secrets
+**/.env

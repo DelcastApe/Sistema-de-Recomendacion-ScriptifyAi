@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Recomendador de Tipo de Video – ScriptifyAI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="./styles.css" rel="stylesheet" />
+</head>
+<body class="page">
+  <div class="dark-stage">
+    <!-- Header -->
+    <header class="header">
+      <h1 class="app-title">🔎 Recomendador de Tipo de Video</h1>
+      <p class="app-subtitle">
+        Descubre si te conviene un video de <b>venta</b>, <b>retención</b> o <b>autoridad</b> según tus métricas.
+      </p>
+    </header>
+
+    <!-- Layout -->
+    <main class="page-grid">
+      <section class="left-col">
+        <!-- ============ MÉTRICAS ============ -->
+        <section class="card">
+          <h2 class="section-title title-strong">Tus métricas</h2>
+
+          <form id="reco-form" class="grid-form grid-form--simple">
+            <!-- fila 1 -->
+            <div class="field">
+              <label for="platform">Plataforma</label>
+              <div class="select-wrap">
+                <select id="platform" name="platform" class="select" required>
+                  <option value="tiktok" selected>TikTok</option>
+                  <option value="youtube">YouTube</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="facebook">Facebook</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="niche">Nicho</label>
+              <input id="niche" name="niche" type="text" placeholder="tecnologia" value="tecnologia" />
+            </div>
+
+            <!-- fila 2 -->
+            <div class="field full">
+              <label for="specialties">Especialidades (coma separadas)</label>
+              <input id="specialties" name="specialties" type="text"
+                     placeholder="realidad virtual, realidad mixta, realidad extendida" />
+            </div>
+
+            <!-- métricas (todas juntas) -->
+            <div class="grid-metrics full">
+              <div class="field">
+                <label for="impressions">Impresiones</label>
+                <input id="impressions" name="impressions" type="number" min="0" placeholder="18000" />
+              </div>
+
+              <div class="field">
+                <label for="reach">Alcance</label>
+                <input id="reach" name="reach" type="number" min="0" placeholder="15000" />
+              </div>
+
+              <div class="field">
+                <label for="likes">Likes</label>
+                <input id="likes" name="likes" type="number" min="0" placeholder="2300" />
+              </div>
+
+              <div class="field">
+                <label for="shares">Shares</label>
+                <input id="shares" name="shares" type="number" min="0" placeholder="450" />
+              </div>
+
+              <div class="field">
+                <label for="saves">Saves</label>
+                <input id="saves" name="saves" type="number" min="0" placeholder="520" />
+              </div>
+
+              <div class="field">
+                <label for="comments">Comentarios</label>
+                <input id="comments" name="comments" type="number" min="0" placeholder="380" />
+              </div>
+
+              <div class="field">
+                <label for="followers">Seguidores</label>
+                <input id="followers" name="followers" type="number" min="0" placeholder="35000" />
+              </div>
+            </div>
+
+            <!-- acciones al final -->
+            <div class="actions actions-left full">
+              <button type="submit" class="btn-primary" id="submit-btn">Generar recomendación</button>
+              <button type="button" class="btn-ghost" id="demo-btn" title="Usa el JSON de ejemplo">Modo demo</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- ============ RESULTADOS ============ -->
+        <section id="results" class="results hidden">
+          <div class="slab">
+            <div class="card soft">
+              <h2 class="section-title title-strong">Recomendación</h2>
+              <p id="rec-text" class="rec-text"></p>
+            </div>
+
+            <div class="card soft">
+              <h3 class="block-title title-strong">Razón</h3>
+              <p id="reason-text" class="reason-text"></p>
+            </div>
+
+            <div class="card soft">
+              <h3 class="block-title title-strong">Ideas de contenido</h3>
+              <ul id="ideas-list" class="ideas-list"></ul>
+            </div>
+
+            <div class="card soft">
+              <h3 class="block-title title-strong">Hashtags sugeridos (a partir de tus ideas)</h3>
+              <ul id="hashtags-ideas" class="tags"></ul>
+            </div>
+
+            <!-- MICRO-FUNNEL: después de hashtags -->
+            <div class="card soft funnel-card">
+              <div class="funnel-inline">
+                <div class="funnel-copy">
+                  <h4>¿Quieres que te ayudemos a generar el guion de tu próximo video?</h4>
+                  <p>Te entregamos guion listo para grabar con gancho, estructura y cierre.</p>
+                </div>
+                <a class="btn-primary btn-sm funnel-link"
+                   data-base="https://forms.gle/TU_LINK_ENCUESTA_GUIONES"
+                   data-service="guiones" href="#">Quiero cotizar guiones</a>
+              </div>
+            </div>
+
+            <div class="card soft">
+              <h3 class="block-title title-hero">Puedes guiarte de estos videos (o buscar inspiración)</h3>
+              <div id="examples" class="examples"></div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <aside class="right-col" aria-hidden="true"></aside>
+    </main>
+  </div>
+
+  <!-- ============ SERVICIOS y FOOTER ============ -->
+  <section class="services-cta">
+    <div class="services-container">
+      <h2 class="services-title">Servicios para escalar tu contenido</h2>
+      <p class="services-sub">Soluciones puntuales o planes mensuales. Elige y te guiamos.</p>
+
+      <div class="services-grid">
+        <!-- Guiones -->
+        <article class="svc-card glass">
+          <figure class="svc-hero is-square">
+            <img src="https://vlsjmrxoxtzkcvfrpkvl.supabase.co/storage/v1/object/public/interfaces/guion.png" alt="Generación de guiones" loading="lazy" />
+            <span class="badge">Nuevo</span>
+          </figure>
+          <div class="svc-body">
+            <h3>Generación de guiones</h3>
+            <p>Guiones listos para grabar con apertura, gancho, estructura y cierre. Incluye CTA y micro-copy.</p>
+            <div class="chips">
+              <span class="chip">3 ganchos</span>
+              <span class="chip">Outline 1-min</span>
+              <span class="chip">CTA optimizado</span>
+            </div>
+            <div class="svc-cta">
+              <span class="from">desde USD 79</span>
+              <a class="svc-btn funnel-link"
+                 data-base="https://forms.gle/TU_LINK_ENCUESTA_GUIONES"
+                 data-service="guiones" href="#">Solicitar cotización</a>
+            </div>
+          </div>
+        </article>
+
+        <!-- Planificación -->
+        <article class="svc-card glass">
+          <figure class="svc-hero is-square">
+            <img src="https://vlsjmrxoxtzkcvfrpkvl.supabase.co/storage/v1/object/public/interfaces/calendario.png" alt="Planificación semanal de videos" loading="lazy" />
+            <span class="badge">Popular</span>
+          </figure>
+          <div class="svc-body">
+            <h3>Planificación semanal de videos</h3>
+            <p>Calendario editorial, ideas validadas, KPI por video, títulos y miniaturas sugeridas.</p>
+            <div class="chips">
+              <span class="chip">7–14 ideas</span>
+              <span class="chip">KPI por video</span>
+              <span class="chip">Checklist</span>
+            </div>
+            <div class="svc-cta">
+              <span class="from">desde USD 129</span>
+              <a class="svc-btn funnel-link"
+                 data-base="https://forms.gle/TU_LINK_ENCUESTA_PLAN"
+                 data-service="planificacion" href="#">Ver opciones</a>
+            </div>
+          </div>
+        </article>
+
+        <!-- Identidad -->
+        <article class="svc-card glass">
+          <figure class="svc-hero is-square">
+            <img src="https://vlsjmrxoxtzkcvfrpkvl.supabase.co/storage/v1/object/public/interfaces/branding.png" alt="Identidad del emprendimiento" loading="lazy" />
+            <span class="badge">Kit</span>
+          </figure>
+          <div class="svc-body">
+            <h3>Identidad del emprendimiento</h3>
+            <p>Pilares de contenido, tono y mensajes clave, guía visual y playbook de publicaciones.</p>
+            <div class="chips">
+              <span class="chip">Pilares</span>
+              <span class="chip">Tono + mensajes</span>
+              <span class="chip">Kit visual</span>
+            </div>
+            <div class="svc-cta">
+              <span class="from">desde USD 149</span>
+              <a class="svc-btn funnel-link"
+                 data-base="https://forms.gle/TU_LINK_ENCUESTA_IDENTIDAD"
+                 data-service="identidad" href="#">Empezar</a>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+    <div class="orbs" aria-hidden="true"></div>
+  </section>
+
+  <!-- FOOTER PRO con claim centrado -->
+  <footer class="site-footer pro">
+    <div class="ft-wrap">
+      <div class="ft-col brand">
+        <div class="logo">⭐</div>
+        <div>
+          <strong>ScriptifyAI</strong>
+          <p>Tu agencia creativa, automatizada con IA.</p>
+        </div>
+      </div>
+
+      <nav class="ft-col">
+        <h4>Producto</h4>
+        <ul>
+          <li><a href="/">Inicio</a></li>
+          <li><a href="/#demo">Demo</a></li>
+          <li><a href="/#precios">Precios</a></li>
+          <li><a href="/recomendador/reco.html">Recomendador</a></li>
+        </ul>
+      </nav>
+
+      <nav class="ft-col">
+        <h4>Recursos</h4>
+        <ul>
+          <li><a href="#" target="_blank" rel="noopener">Guías</a></li>
+          <li><a href="#" target="_blank" rel="noopener">Blog</a></li>
+          <li><a href="#" target="_blank" rel="noopener">Plantillas</a></li>
+          <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSfnwskTVhc_z0ozRK-F5oXnPxv8DDltKWWiCNKRv03dKTJjDQ/viewform?usp=header" target="_blank" rel="noopener">Contacto</a></li>
+        </ul>
+      </nav>
+
+      <div class="ft-col newsletter">
+        <h4>Recibe tips semanales</h4>
+        <form class="nl" onsubmit="event.preventDefault(); alert('¡Gracias! Te avisaremos.');">
+          <input type="email" placeholder="tu@email.com" aria-label="Tu correo" required />
+          <button class="btn-primary">Suscribirme</button>
+        </form>
+        <div class="social">
+          <a aria-label="YouTube" href="#" target="_blank" rel="noopener">▶</a>
+          <a aria-label="Instagram" href="#" target="_blank" rel="noopener">◎</a>
+          <a aria-label="X/Twitter" href="#" target="_blank" rel="noopener">𝕏</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM claim centrado -->
+    <div class="ft-bottom centered">
+      <div class="claim">🔒 Sitio seguro • Encriptado con SSL • Política de privacidad actualizada</div>
+      <div class="legal-center">© 2024 ScriptifyAI. Todos los derechos reservados.</div>
+    </div>
+  </footer>
+
+  <!-- MODAL -->
+  <div id="loading-modal" class="loading-modal hidden" aria-live="polite" aria-busy="true">
+    <div class="loading-card">
+      <div class="spinner" aria-hidden="true"></div>
+      <h3>El agente está pensando…</h3>
+      <p id="quip" class="quip">Leyendo tus métricas y preparando una estrategia.</p>
+      <p class="hint">Esto puede tardar unos segundos.</p>
+    </div>
+  </div>
+
+  <!-- Primero el cliente de API, luego tu app -->
+  <script src="./apiClient.js"></script>
+  <script src="./app.js" defer></script>
+</body>
+</html>
+
